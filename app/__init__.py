@@ -1,7 +1,8 @@
 import os
 from flask import Flask
 from app.config import config
-from app.extensions import db, jwt, cors
+from app.extensions import db, jwt
+from flask_cors import CORS
 
 def create_app(config_name=None):
     """Application factory pattern"""
@@ -14,11 +15,13 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
-    cors.init_app(app, origins=app.config['CORS_ORIGINS'])
     
-    # Register blueprints (will add later)
-    # from app.api import api_bp
-    # app.register_blueprint(api_bp, url_prefix='/api')
+    # Simple CORS - allow all origins for now
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    
+    # Register API blueprints
+    from app.api import api_v1
+    app.register_blueprint(api_v1, url_prefix='/api')
     
     # Import models to register them with SQLAlchemy
     with app.app_context():

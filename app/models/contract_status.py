@@ -10,7 +10,7 @@ class ContractStatus(db.Model, TimestampMixin):
     description = db.Column(db.Text)
     
     # Relationships
-    contracts = db.relationship('Contract', backref='contract_status', lazy='dynamic')
+    contracts = db.relationship('Contract', backref='status', lazy='dynamic')
     
     def __repr__(self):
         return f'<ContractStatus {self.name}>'

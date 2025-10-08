@@ -27,6 +27,7 @@ class Contract(db.Model, TimestampMixin):
     version = db.Column(db.Integer, default=1, nullable=False)
     
     # Relationships
+    # Note: contract_type and status relationships are defined via backrefs in ContractType and ContractStatus models
     documents = db.relationship('Document', backref='contract', lazy='dynamic', cascade='all, delete-orphan')
     
     @staticmethod
