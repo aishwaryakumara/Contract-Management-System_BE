@@ -22,9 +22,13 @@ class Contract(db.Model, TimestampMixin):
     end_date = db.Column(db.Date, nullable=False)
     renewal_date = db.Column(db.Date)
     value = db.Column(db.Numeric(15, 2))  # Contract value
+    description = db.Column(db.Text, nullable=True)  # Contract description/notes
+
     
     # Version tracking
     version = db.Column(db.Integer, default=1, nullable=False)
+    renewed_from = db.Column(db.String(100), nullable=True)  # Previous version instance ID
+    renewed_to = db.Column(db.String(100), nullable=True)    # Next version instance ID
     
     # Relationships
     # Note: contract_type and status relationships are defined via backrefs in ContractType and ContractStatus models
