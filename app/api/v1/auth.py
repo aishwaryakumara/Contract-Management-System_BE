@@ -1,11 +1,13 @@
 """Authentication API endpoints"""
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from app.extensions import db
-from app.models.user import User
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.services.auth_service import AuthService
 
 auth_bp = Blueprint('auth', __name__)
+
+# Initialize service
+auth_service = AuthService()
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -40,38 +42,19 @@ def login():
         email = data.get('email')
         password = data.get('password')
         
-        if not email or not password:
-            return jsonify({
-                'success': False,
-                'error': 'Email and password are required'
-            }), 400
-        
-        # Find user by email
-        user = User.query.filter_by(email=email).first()
-        
-        if not user or not user.check_password(password):
-            return jsonify({
-                'success': False,
-                'error': 'Invalid email or password'
-            }), 401
-        
-        # Create JWT token (convert ID to string for JWT)
-        access_token = create_access_token(identity=str(user.id))
+        # Call service
+        result = auth_service.login(email, password)
         
         return jsonify({
             'success': True,
-            'data': {
-                'token': access_token,
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'role': user.role
-                }
-            }
+            'data': result
         }), 200
         
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 401
     except Exception as e:
         return jsonify({
             'success': False,
@@ -98,11 +81,12 @@ def get_current_user():
         }
     """
     try:
-        current_user_id = get_jwt_identity()
-        # Convert back to integer for database query
-        user = User.query.get(int(current_user_id))
+        current_user_id = int(get_jwt_identity())
         
-        if not user:
+        # Call service
+        user_data = auth_service.get_current_user(current_user_id)
+        
+        if not user_data:
             return jsonify({
                 'success': False,
                 'error': 'User not found'
@@ -110,13 +94,7 @@ def get_current_user():
         
         return jsonify({
             'success': True,
-            'data': {
-                'id': user.id,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'role': user.role
-            }
+            'data': user_data
         }), 200
         
     except Exception as e:

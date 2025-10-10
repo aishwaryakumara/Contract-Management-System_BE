@@ -1,9 +1,12 @@
 """Contract Status API endpoints"""
 
 from flask import Blueprint, jsonify
-from app.models.contract_status import ContractStatus
+from app.repositories.contract_status_repository import ContractStatusRepository
 
 contract_status_bp = Blueprint('contract_status', __name__)
+
+# Initialize repository
+contract_status_repo = ContractStatusRepository()
 
 
 @contract_status_bp.route('', methods=['GET'])
@@ -24,7 +27,7 @@ def get_contract_statuses():
         }
     """
     try:
-        statuses = ContractStatus.query.all()
+        statuses = contract_status_repo.get_all_statuses()
         
         statuses_data = []
         for status in statuses:

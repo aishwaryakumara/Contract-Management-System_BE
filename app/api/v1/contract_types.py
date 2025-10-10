@@ -1,9 +1,12 @@
 """Contract Types API endpoints"""
 
 from flask import Blueprint, jsonify
-from app.models.contract_type import ContractType
+from app.repositories.contract_type_repository import ContractTypeRepository
 
 contract_types_bp = Blueprint('contract_types', __name__)
+
+# Initialize repository
+contract_type_repo = ContractTypeRepository()
 
 
 @contract_types_bp.route('', methods=['GET'])
@@ -24,7 +27,7 @@ def get_contract_types():
         }
     """
     try:
-        types = ContractType.query.all()
+        types = contract_type_repo.get_all_types()
         
         types_data = []
         for contract_type in types:
