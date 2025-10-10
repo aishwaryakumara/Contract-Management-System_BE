@@ -1,13 +1,17 @@
 """Contract management API endpoints"""
 
+import os
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
 from app.services.contract_service import ContractService
+from app.services.contract_extraction_service import ContractExtractionService
 
 contracts_bp = Blueprint('contracts', __name__)
 
-# Initialize service
+# Initialize services
 contract_service = ContractService()
+extraction_service = ContractExtractionService()  # NER service
 
 
 @contracts_bp.route('', methods=['GET'])
@@ -308,6 +312,84 @@ def renew_contract(instance_id):
             'error': str(e)
         }), 400
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@contracts_bp.route('/extract', methods=['POST'])
+@jwt_required()
+def extract_contract_data():
+    """
+    Extract contract data from PDF using NER (NEW FEATURE!)
+    
+    Uses spaCy's pre-trained NER model to automatically extract:
+    - Client name (ORG entities)
+    - Contract dates (DATE entities)
+    - Contract value (MONEY entities)
+    - Contract type (keyword classification)
+    
+    Request (multipart/form-data):
+        file: contract PDF
+    
+    Response:
+        {
+            "success": true,
+            "data": {
+                "client_name": "Acme Corporation",
+                "contract_name": "Service Agreement",
+                "contract_type": "service",
+                "start_date": "2024-01-15",
+                "end_date": "2025-01-15",
+                "value": 50000.00,
+                "description": "..."
+            }
+        }
+    """
+    try:
+        file = request.files.get('file')
+        
+        if not file or not file.filename:
+            return jsonify({
+                'success': False,
+                'error': 'No file provided'
+            }), 400
+        
+        # Validate file type (PDF or Word)
+        allowed_extensions = ['.pdf', '.docx', '.doc']
+        file_ext = '.' + file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        
+        if file_ext not in allowed_extensions:
+            return jsonify({
+                'success': False,
+                'error': 'Only PDF and Word documents supported (.pdf, .docx, .doc)'
+            }), 400
+        
+        # Save temp file
+        filename = secure_filename(file.filename)
+        temp_dir = '/tmp/contract_extraction'
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, filename)
+        file.save(temp_path)
+        
+        print(f"\n🚀 NER Extraction: {filename}")
+        
+        # Run NER extraction
+        extracted_data = extraction_service.extract_from_pdf(temp_path)
+        
+        # Clean up
+        os.remove(temp_path)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Data extracted using NER',
+            'data': extracted_data,
+            'model': 'spaCy en_core_web_sm v3.8.0'
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
