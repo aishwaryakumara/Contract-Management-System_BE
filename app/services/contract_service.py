@@ -10,6 +10,7 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.contract_type_repository import ContractTypeRepository
 from app.repositories.contract_status_repository import ContractStatusRepository
 from app.services.storage_service import StorageService
+from app.utils.activity_logger import log_activity
 
 
 class ContractService:
@@ -181,6 +182,13 @@ class ContractService:
         
         self.contract_repo.commit()
         
+        # Log creation activity
+        log_activity(
+            contract_instance_id=contract.contract_instance_id,
+            activity_type='created',
+            message=f"Contract '{contract.contract_name}' created"
+        )
+        
         return {
             'id': contract.contract_instance_id,
             'contractId': contract.id,
@@ -206,6 +214,19 @@ class ContractService:
         if not contract:
             return None
         
+        # 1️⃣ CAPTURE OLD VALUES (before any changes)
+        old_values = {
+            'contractName': contract.contract_name,
+            'clientName': contract.client_name,
+            'contractType': contract.contract_type.name if contract.contract_type else None,
+            'status': contract.status.name if contract.status else None,
+            'startDate': contract.start_date.isoformat() if contract.start_date else None,
+            'endDate': contract.end_date.isoformat() if contract.end_date else None,
+            'value': str(contract.value) if contract.value else None,
+            'description': contract.description
+        }
+        
+        # 2️⃣ UPDATE FIELDS
         # Update basic fields
         if 'contractName' in data:
             contract.contract_name = data['contractName']
@@ -249,7 +270,83 @@ class ContractService:
             contract.description = data.get('description')
         
         contract.updated_at = datetime.utcnow()
+        
+        # 3️⃣ COMPARE & LOG CHANGES
+        changes = []
+        
+        # Check each field for changes
+        if old_values['contractName'] != contract.contract_name:
+            changes.append({
+                'field': 'contractName',
+                'oldValue': old_values['contractName'] or 'empty',
+                'newValue': contract.contract_name or 'empty'
+            })
+        
+        if old_values['clientName'] != contract.client_name:
+            changes.append({
+                'field': 'clientName',
+                'oldValue': old_values['clientName'] or 'empty',
+                'newValue': contract.client_name or 'empty'
+            })
+        
+        new_contract_type = contract.contract_type.name if contract.contract_type else None
+        if old_values['contractType'] != new_contract_type:
+            changes.append({
+                'field': 'contractType',
+                'oldValue': old_values['contractType'] or 'empty',
+                'newValue': new_contract_type or 'empty'
+            })
+        
+        new_status = contract.status.name if contract.status else None
+        if old_values['status'] != new_status:
+            changes.append({
+                'field': 'status',
+                'oldValue': old_values['status'] or 'empty',
+                'newValue': new_status or 'empty'
+            })
+        
+        new_start_date = contract.start_date.isoformat() if contract.start_date else None
+        if old_values['startDate'] != new_start_date:
+            changes.append({
+                'field': 'startDate',
+                'oldValue': old_values['startDate'] or 'empty',
+                'newValue': new_start_date or 'empty'
+            })
+        
+        new_end_date = contract.end_date.isoformat() if contract.end_date else None
+        if old_values['endDate'] != new_end_date:
+            changes.append({
+                'field': 'endDate',
+                'oldValue': old_values['endDate'] or 'empty',
+                'newValue': new_end_date or 'empty'
+            })
+        
+        new_value = str(contract.value) if contract.value else None
+        if old_values['value'] != new_value:
+            changes.append({
+                'field': 'value',
+                'oldValue': f"${old_values['value']}" if old_values['value'] else 'empty',
+                'newValue': f"${new_value}" if new_value else 'empty'
+            })
+        
+        if old_values['description'] != contract.description:
+            changes.append({
+                'field': 'description',
+                'oldValue': old_values['description'] or 'empty',
+                'newValue': contract.description or 'empty'
+            })
+        
+        # Commit changes
         self.contract_repo.commit()
+        
+        # 4️⃣ LOG ACTIVITY (only if something actually changed)
+        if changes:
+            log_activity(
+                contract_instance_id=instance_id,
+                activity_type='modified',
+                message=f'Contract updated - {len(changes)} field(s) changed',
+                changes=changes
+            )
         
         return contract
     
@@ -289,6 +386,13 @@ class ContractService:
         })
         
         self.document_repo.commit()
+        
+        # Log document upload activity
+        log_activity(
+            contract_instance_id=instance_id,
+            activity_type='document_uploaded',
+            message=f"Document '{file_info['filename']}' uploaded"
+        )
         
         return {
             'id': document.id,

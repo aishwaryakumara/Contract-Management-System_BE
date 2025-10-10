@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, request, g
 from pythonjsonlogger import jsonlogger
 from app.config import config
-from app.extensions import db, jwt
+from app.extensions import db, jwt, migrate
 from flask_cors import CORS
 import time
 
@@ -23,8 +23,13 @@ def setup_logging(app):
             log_record['timestamp'] = record.created
             log_record['level'] = record.levelname
             log_record['service'] = 'contract-management-api'
-            if hasattr(g, 'request_id'):
-                log_record['request_id'] = g.request_id
+            # Only add request_id if we're in a request context
+            try:
+                if hasattr(g, 'request_id'):
+                    log_record['request_id'] = g.request_id
+            except RuntimeError:
+                # Not in request context, skip request_id
+                pass
     
     formatter = CustomJsonFormatter('%(timestamp)s %(level)s %(message)s')
     
@@ -101,6 +106,7 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
+    migrate.init_app(app, db)
     
     # CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})

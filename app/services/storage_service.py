@@ -57,9 +57,11 @@ class StorageService:
         if subfolder:
             upload_folder = os.path.join(upload_folder, subfolder)
         
+        # Convert to absolute path
+        upload_folder = os.path.abspath(upload_folder)
         os.makedirs(upload_folder, exist_ok=True)
         
-        # Build full file path
+        # Build full file path (absolute)
         file_path = os.path.join(upload_folder, filename)
         
         # Save file

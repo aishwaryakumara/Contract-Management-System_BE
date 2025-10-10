@@ -6,6 +6,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from app.services.contract_service import ContractService
 from app.services.contract_extraction_service import ContractExtractionService
+from app.models.activity_history import ActivityHistory
+from app.utils.activity_logger import log_activity
 
 contracts_bp = Blueprint('contracts', __name__)
 
@@ -390,6 +392,78 @@ def extract_contract_data():
         
     except Exception as e:
         print(f"❌ Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@contracts_bp.route('/<string:instance_id>/history', methods=['GET', 'OPTIONS'])
+def get_contract_history(instance_id):
+    """
+    Get activity history for a contract
+    
+    Handles CORS preflight (OPTIONS) and actual GET request
+    
+    Response:
+        {
+            "success": true,
+            "data": [
+                {
+                    "id": 1,
+                    "type": "created",
+                    "user": "john@example.com",
+                    "details": {
+                        "message": "Contract created"
+                    },
+                    "timestamp": "2024-10-10T08:30:00"
+                },
+                {
+                    "id": 2,
+                    "type": "modified",
+                    "user": "jane@example.com",
+                    "details": {
+                        "message": "Contract updated",
+                        "changes": [
+                            {
+                                "field": "clientName",
+                                "oldValue": "Acme",
+                                "newValue": "Acme Corp"
+                            }
+                        ]
+                    },
+                    "timestamp": "2024-10-10T09:15:00"
+                }
+            ]
+        }
+    """
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    # For GET requests, require JWT
+    try:
+        from flask_jwt_extended import verify_jwt_in_request
+        verify_jwt_in_request()
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': 'Authentication required'
+        }), 401
+    
+    try:
+        # Get all activities for this contract, newest first
+        activities = ActivityHistory.query\
+            .filter_by(contract_instance_id=instance_id)\
+            .order_by(ActivityHistory.timestamp.desc())\
+            .all()
+        
+        return jsonify({
+            'success': True,
+            'data': [activity.to_dict() for activity in activities]
+        }), 200
+        
+    except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)

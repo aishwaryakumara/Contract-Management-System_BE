@@ -5,6 +5,7 @@ from app.models.document_type import DocumentType
 from app.models.contract import Contract
 from app.models.document import Document
 from app.models.audit_log import AuditLog
+from app.models.activity_history import ActivityHistory
 
 __all__ = [
     'User',
@@ -13,5 +14,6 @@ __all__ = [
     'DocumentType',
     'Contract',
     'Document',
-    'AuditLog'
+    'AuditLog',
+    'ActivityHistory'
 ]
